@@ -3,6 +3,7 @@ from typing import List, Dict, AsyncGenerator, Union
 import google.generativeai as genai
 from ..models.conversation import Conversation
 from ..models.document import Document
+from ..models.personality import Personality
 from sqlalchemy.orm import Session
 from ..core.config import settings
 
@@ -32,16 +33,29 @@ class DocumentManager:
         )
 
 class AIAdvisor:
-    def __init__(self, role: str):
+    def __init__(self, role: str, db: Session = None, org_id: int = None):
         genai.configure(api_key=settings.GOOGLE_API_KEY)
         self.model = genai.GenerativeModel('gemini-1.5-flash')
         self.role = role
+        self.db = db
+        self.org_id = org_id
         self.personality = self.get_personality(role)
         self.memory = ConversationMemory()
         self.document_manager = DocumentManager()
 
     def get_personality(self, role: str) -> str:
-        # Copy the personality definitions from the original AIAdvisor class
+        # First check for custom personality if db and org_id are available
+        if self.db and self.org_id:
+            custom_personality = (
+                self.db.query(Personality)
+                .filter(
+                    Personality.organization_id == self.org_id,
+                    Personality.name == role
+                )
+                .first()
+            )
+            if custom_personality:
+                return custom_personality.prompt_templatee
         personalities = {
             "legal": """
             You are a seasoned Legal Advisor with expertise in corporate law, compliance, and risk management.

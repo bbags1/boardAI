@@ -31,3 +31,19 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class PersonalityBase(BaseModel):
+    name: str
+    description: str
+    prompt_template: str
+
+class PersonalityCreate(PersonalityBase):
+    pass
+
+class PersonalityResponse(PersonalityBase):
+    id: int
+    organization_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

@@ -18,6 +18,7 @@ class Organization(Base):
 
     # Relationships
     users = relationship("User", back_populates="organization")
+    personalities = relationship("Personality", back_populates="organization")
 
 class User(Base):
     __tablename__ = "users"

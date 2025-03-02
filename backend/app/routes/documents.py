@@ -49,13 +49,15 @@ async def upload_document(
             )
 
         # Create document record
+        doc_metadata = {
+            "filename": file.filename,
+            "content_type": file.content_type
+        }
+        
         document = Document(
             type=type,
             content=content_str,
-            doc_metadata={
-                "filename": file.filename,
-                "content_type": file.content_type
-            },
+            doc_metadata=doc_metadata,
             organization_id=current_user.organization_id
         )
         
@@ -63,7 +65,17 @@ async def upload_document(
         db.commit()
         db.refresh(document)
         
-        return document
+        # Create a DocumentResponse object manually to ensure proper conversion
+        doc_dict = {
+            "id": document.id,
+            "type": document.type,
+            "content": document.content,
+            "doc_metadata": document.doc_metadata_dict,  # Use the property method
+            "timestamp": document.timestamp,
+            "organization_id": document.organization_id
+        }
+        
+        return DocumentResponse(**doc_dict)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -82,7 +94,22 @@ async def list_documents(
         .order_by(Document.timestamp.desc())
         .all()
     )
-    return documents
+    
+    # Create DocumentResponse objects manually to ensure proper conversion
+    document_responses = []
+    for doc in documents:
+        # Create a dictionary representation of the document
+        doc_dict = {
+            "id": doc.id,
+            "type": doc.type,
+            "content": doc.content,
+            "doc_metadata": doc.doc_metadata_dict,  # Use the property method
+            "timestamp": doc.timestamp,
+            "organization_id": doc.organization_id
+        }
+        document_responses.append(DocumentResponse(**doc_dict))
+    
+    return document_responses
 
 @router.get("/{document_id}", response_model=DocumentResponse)
 async def get_document(
@@ -105,8 +132,18 @@ async def get_document(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Document not found"
         )
-        
-    return document
+    
+    # Create a DocumentResponse object manually to ensure proper conversion
+    doc_dict = {
+        "id": document.id,
+        "type": document.type,
+        "content": document.content,
+        "doc_metadata": document.doc_metadata_dict,  # Use the property method
+        "timestamp": document.timestamp,
+        "organization_id": document.organization_id
+    }
+    
+    return DocumentResponse(**doc_dict)
 
 @router.delete("/{document_id}")
 async def delete_document(

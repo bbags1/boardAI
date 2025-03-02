@@ -1,76 +1,114 @@
-## AI Advisory Board
+# BoardAI - AI Advisory Board for Organizations
 
-An interactive AI-powered advisory board system that provides expert analysis from multiple perspectives: legal, financial, and technological. The system supports both text and voice interactions, document management, and collaborative AI discussions.
+BoardAI is a web application that provides organizations with an AI-powered advisory board. It allows users to upload company documents, engage with AI advisors with different expertise, and receive insights and recommendations based on their organization's data.
 
 ## Features
 
-- 🤖 Multiple AI Advisors (Legal, Financial, Technology)
-- 🎤 Voice Input Support
-- 📄 Document Management System
-- 💬 Interactive Chat Interface
-- 🤝 Multi-Advisor Synthesis
-- 📊 Context-Aware Responses
-- 🗄️ Conversation Memory
+- **User Authentication**: Secure login and registration system
+- **Document Management**: Upload, view, and manage company documents (supports PDF and text files)
+- **AI Advisory Board**: Interact with AI advisors with expertise in different domains (legal, financial, technology, etc.)
+- **Conversation History**: Keep track of all discussions with the AI advisors
+
+## Tech Stack
+
+- **Backend**: FastAPI, SQLAlchemy, PostgreSQL
+- **Frontend**: Streamlit
+- **AI**: Google Generative AI
+- **Authentication**: JWT tokens with bcrypt password hashing
 
 ## Installation
 
+### Prerequisites
+
+- Python 3.9+
+- PostgreSQL
+- Google API key for Generative AI
+
+### Setup
+
 1. Clone the repository:
-bash
-git clone https://github.com/yourusername/boardAI.git
-cd boardAI
+   ```
+   git clone https://github.com/yourusername/boardAI.git
+   cd boardAI
+   ```
 
 2. Create a virtual environment:
-bash
-python -m venv venv
-source venv/bin/activate # On Windows: venv\Scripts\activate
+   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
 3. Install dependencies:
-bash
-pip install -r requirements.txt
+   ```
+   pip install -r requirements.txt
+   ```
 
-4. Set up environment variables:
-Create a `.env` file in the root directory with:
+4. Create a `.env` file in the root directory with the following variables:
+   ```
+   GOOGLE_API_KEY=your_google_api_key
+   POSTGRES_SERVER=localhost
+   POSTGRES_USER=postgres
+   POSTGRES_PASSWORD=postgres
+   POSTGRES_DB=boardai
+   SECRET_KEY=your_secret_key
+   ```
 
-GOOGLE_API_KEY=your_google_api_key_here
+5. Initialize the database:
+   ```
+   cd backend
+   alembic upgrade head
+   ```
 
-## Usage
+## Running the Application
 
-1. Start the application:
-bash
-streamlit run src/app.py
+1. Start the backend server:
+   ```
+   cd backend
+   uvicorn app.main:app --reload
+   ```
 
-2. Select advisors from the sidebar
-3. Interact through:
-   - Text input
-   - Voice recording (click microphone button)
-   - Document uploads
+2. Start the frontend application (in a new terminal):
+   ```
+   cd frontend
+   streamlit run app.py
+   ```
+
+3. Access the application:
+   - Frontend: http://localhost:8501
+   - Backend API docs: http://localhost:8000/docs
 
 ## Project Structure
+
+```
 boardAI/
-├── src/
-│ ├── app.py # Streamlit interface
-│ ├── main.py # Core AI logic
-│ ├── memory.py # Conversation memory
-│ └── document_manager.py # Document handling
-├── data/
-│ ├── memory/ # Stored conversations
-│ └── documents/ # Uploaded documents
-├── temp/ # Temporary files
-├── requirements.txt
-└── README.md
+├── backend/
+│   ├── app/
+│   │   ├── core/        # Core configuration
+│   │   ├── db/          # Database setup
+│   │   ├── models/      # SQLAlchemy models
+│   │   ├── routes/      # API endpoints
+│   │   ├── schemas/     # Pydantic schemas
+│   │   └── main.py      # FastAPI application
+│   └── alembic/         # Database migrations
+├── frontend/
+│   └── app.py           # Streamlit application
+├── .env                 # Environment variables
+├── requirements.txt     # Project dependencies
+└── README.md            # Project documentation
+```
 
-## Dependencies
+## API Documentation
 
-See `requirements.txt` for full list of dependencies.
+The API documentation is available at http://localhost:8000/docs when the backend server is running.
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+2. Create a feature branch: `git checkout -b feature-name`
+3. Commit your changes: `git commit -m 'Add some feature'`
+4. Push to the branch: `git push origin feature-name`
+5. Submit a pull request
 
 ## License
 
-[Your chosen license]
+This project is licensed under the MIT License - see the LICENSE file for details.

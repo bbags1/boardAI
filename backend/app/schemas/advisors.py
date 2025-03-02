@@ -31,6 +31,13 @@ class DocumentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        
+        @classmethod
+        def from_orm(cls, obj):
+            # Ensure doc_metadata is a dictionary
+            if hasattr(obj, 'doc_metadata_dict'):
+                obj.doc_metadata = obj.doc_metadata_dict
+            return super().from_orm(obj)
 
 class PersonalityBase(BaseModel):
     name: str

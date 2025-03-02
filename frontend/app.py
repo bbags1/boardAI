@@ -15,6 +15,14 @@ def initialize_session():
         st.session_state.chat_history = []
     if 'show_upload_modal' not in st.session_state:
         st.session_state.show_upload_modal = False
+    if 'email' not in st.session_state:
+        st.session_state.email = ""
+    if 'password' not in st.session_state:
+        st.session_state.password = ""
+    if 'full_name' not in st.session_state:
+        st.session_state.full_name = ""
+    if 'org_name' not in st.session_state:
+        st.session_state.org_name = ""
 
 def show_upload_modal():
     """Display upload success modal"""
@@ -140,8 +148,8 @@ def display_chat():
         st.rerun()
 
 def main():
+    initialize_session()  # Initialize session state first
     st.title("BoardAI")
-    initialize_session()
     
     # Authentication section in sidebar
     st.sidebar.header("Authentication")
@@ -150,8 +158,8 @@ def main():
         
         with tab1:
             with st.form("login_form"):
-                email = st.text_input("Email")
-                password = st.text_input("Password", type="password")
+                email = st.text_input("Email", value=st.session_state.email, key="login_email")
+                password = st.text_input("Password", type="password", value=st.session_state.password, key="login_password")
                 if st.form_submit_button("Login"):
                     try:
                         response = requests.post(
@@ -169,10 +177,10 @@ def main():
         
         with tab2:
             with st.form("register_form"):
-                email = st.text_input("Email")
-                password = st.text_input("Password", type="password")
-                full_name = st.text_input("Full Name")
-                org_name = st.text_input("Organization Name")
+                email = st.text_input("Email", value=st.session_state.email, key="register_email")
+                password = st.text_input("Password", type="password", value=st.session_state.password, key="register_password")
+                full_name = st.text_input("Full Name", value=st.session_state.full_name, key="register_full_name")
+                org_name = st.text_input("Organization Name", value=st.session_state.org_name, key="register_org_name")
                 if st.form_submit_button("Register"):
                     try:
                         response = requests.post(

@@ -4,7 +4,7 @@ BoardAI is a web application that provides organizations with an AI-powered advi
 
 ## Features
 
-- **User Authentication**: Secure login and registration system
+- **User Authentication**: 
 - **Document Management**: Upload, view, and manage company documents (supports PDF and text files)
 - **AI Advisory Board**: Interact with AI advisors with expertise in different domains (legal, financial, technology, etc.)
 - **Conversation History**: Keep track of all discussions with the AI advisors

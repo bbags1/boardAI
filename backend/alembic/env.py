@@ -11,7 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import your models and settings
 from app.core.config import settings
 from app.db.session import Base
-from app.models.user import User, Organization
+from app.models.user import User
+from app.models.organization import Organization
 from app.models.personality import Personality
 from app.models.document import Document
 from app.models.conversation import Conversation

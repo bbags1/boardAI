@@ -13,4 +13,4 @@ class Conversation(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"))
 
     # Relationships
-    organization = relationship("Organization", back_populates="conversations")
+    organization = relationship("Organization")

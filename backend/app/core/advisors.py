@@ -1,4 +1,5 @@
 import os
+import tempfile
 from typing import List, Dict, AsyncGenerator, Union
 import google.generativeai as genai
 from ..models.conversation import Conversation
@@ -55,7 +56,7 @@ class AIAdvisor:
                 .first()
             )
             if custom_personality:
-                return custom_personality.prompt_templatee
+                return custom_personality.prompt_template
         personalities = {
             "legal": """
             You are a seasoned Legal Advisor with expertise in corporate law, compliance, and risk management.
@@ -142,15 +143,6 @@ class AIAdvisor:
                 os.remove(temp_path)
         except Exception as e:
             raise Exception(f"Error processing audio: {str(e)}")
-
-    def get_personality(self, role: str) -> str:
-        # Existing personality definitions remain the same
-        personalities = {
-            "legal": """...""",  # Your existing legal personality
-            "financial": """...""",  # Your existing financial personality
-            "technology": """..."""  # Your existing technology personality
-        }
-        return personalities.get(role, "Generic board member personality")
 
     def _format_history(self, conversations: List[Conversation]) -> str:
         # Existing _format_history implementation remains the same

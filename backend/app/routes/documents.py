@@ -1,172 +1,187 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from ..schemas.advisors import DocumentCreate, DocumentResponse
 from ..models.document import Document
 from ..models.user import User
 from ..db.session import get_db
 from ..core.security import get_current_user
 import json
+import io
+import pdfplumber
+import os
+import tempfile
+from datetime import datetime
+from ..api.deps import get_current_organization
 
 router = APIRouter()
 
-@router.post("/upload", response_model=DocumentResponse)
-async def upload_document(
-    type: str,
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+@router.post("/upload", response_model=List[DocumentResponse])
+async def upload_documents(
+    files: List[UploadFile] = File(...),
+    type: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+    current_org = Depends(get_current_organization)
 ):
-    """Upload a new document"""
-    try:
-        content = await file.read()
-        content_str = ""
+    """Upload multiple documents and store them in the database"""
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+    
+    uploaded_documents = []
+    
+    for file in files:
+        # Determine content type
+        content_type = file.content_type
         
-        # Determine content type from filename if not set
-        if not file.content_type:
-            file.content_type = "application/pdf" if file.filename.lower().endswith('.pdf') else "text/plain"
-        
-        if file.content_type == 'text/plain':
-            content_str = content.decode('utf-8')
-        elif file.content_type == 'application/pdf':
-            import io
-            import pdfplumber
+        # Read content from file
+        content = ""
+        if content_type == "application/pdf":
+            # Extract text from PDF
+            with tempfile.NamedTemporaryFile(delete=False) as temp:
+                temp.write(await file.read())
+                temp_path = temp.name
             
-            pdf_file = io.BytesIO(content)
             try:
-                with pdfplumber.open(pdf_file) as pdf:
-                    for page in pdf.pages:
-                        content_str += page.extract_text() + "\n"
+                with pdfplumber.open(temp_path) as pdf:
+                    content = "\n".join([page.extract_text() or "" for page in pdf.pages])
+                os.unlink(temp_path)
             except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Error processing PDF: {str(e)}"
-                )
+                raise HTTPException(status_code=400, detail=f"Error processing PDF: {str(e)}")
         else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported file type: {file.content_type}"
-            )
-
-        # Create document record
+            # Read text file
+            content = (await file.read()).decode("utf-8")
+        
+        # Create document metadata
         doc_metadata = {
             "filename": file.filename,
-            "content_type": file.content_type
+            "content_type": content_type,
+            "size": file.size,
+            "upload_date": datetime.now().isoformat()
         }
         
-        document = Document(
+        # Create document in database
+        db_document = Document(
             type=type,
-            content=content_str,
+            content=content,
             doc_metadata=doc_metadata,
-            organization_id=current_user.organization_id
+            organization_id=current_org.id
         )
         
-        db.add(document)
+        db.add(db_document)
         db.commit()
-        db.refresh(document)
+        db.refresh(db_document)
         
-        # Create a DocumentResponse object manually to ensure proper conversion
-        doc_dict = {
-            "id": document.id,
-            "type": document.type,
-            "content": document.content,
-            "doc_metadata": document.doc_metadata_dict,  # Use the property method
-            "timestamp": document.timestamp,
-            "organization_id": document.organization_id
-        }
-        
-        return DocumentResponse(**doc_dict)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Could not process document: {str(e)}"
+        # Convert to Pydantic model
+        doc_response = DocumentResponse(
+            id=db_document.id,
+            type=db_document.type,
+            content=db_document.content,
+            doc_metadata=db_document.doc_metadata_dict,
+            timestamp=db_document.timestamp,
+            organization_id=db_document.organization_id
         )
+        uploaded_documents.append(doc_response)
+    
+    return uploaded_documents
 
 @router.get("/list", response_model=List[DocumentResponse])
-async def list_documents(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+def list_documents(
+    db: Session = Depends(get_db),
+    current_org = Depends(get_current_organization)
 ):
-    """List all documents for the organization"""
-    documents = (
-        db.query(Document)
-        .filter(Document.organization_id == current_user.organization_id)
-        .order_by(Document.timestamp.desc())
-        .all()
-    )
+    """List all documents for the current organization"""
+    documents = db.query(Document).filter(
+        Document.organization_id == current_org.id
+    ).all()
     
-    # Create DocumentResponse objects manually to ensure proper conversion
+    # Convert to Pydantic models
     document_responses = []
     for doc in documents:
-        # Create a dictionary representation of the document
-        doc_dict = {
-            "id": doc.id,
-            "type": doc.type,
-            "content": doc.content,
-            "doc_metadata": doc.doc_metadata_dict,  # Use the property method
-            "timestamp": doc.timestamp,
-            "organization_id": doc.organization_id
-        }
-        document_responses.append(DocumentResponse(**doc_dict))
+        document_responses.append(
+            DocumentResponse(
+                id=doc.id,
+                type=doc.type,
+                content=doc.content,
+                doc_metadata=doc.doc_metadata_dict,
+                timestamp=doc.timestamp,
+                organization_id=doc.organization_id
+            )
+        )
     
     return document_responses
 
 @router.get("/{document_id}", response_model=DocumentResponse)
-async def get_document(
+def get_document(
     document_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_org = Depends(get_current_organization)
 ):
-    """Get a specific document"""
-    document = (
-        db.query(Document)
-        .filter(
-            Document.id == document_id,
-            Document.organization_id == current_user.organization_id
-        )
-        .first()
-    )
+    """Get a specific document by ID"""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_org.id
+    ).first()
     
     if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found"
-        )
+        raise HTTPException(status_code=404, detail="Document not found")
     
-    # Create a DocumentResponse object manually to ensure proper conversion
-    doc_dict = {
-        "id": document.id,
-        "type": document.type,
-        "content": document.content,
-        "doc_metadata": document.doc_metadata_dict,  # Use the property method
-        "timestamp": document.timestamp,
-        "organization_id": document.organization_id
-    }
+    # Convert to Pydantic model
+    return DocumentResponse(
+        id=document.id,
+        type=document.type,
+        content=document.content,
+        doc_metadata=document.doc_metadata_dict,
+        timestamp=document.timestamp,
+        organization_id=document.organization_id
+    )
+
+@router.get("/download/{document_id}")
+def download_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_org = Depends(get_current_organization)
+):
+    """Download a document by ID"""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_org.id
+    ).first()
     
-    return DocumentResponse(**doc_dict)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Get metadata
+    metadata = document.doc_metadata_dict
+    filename = metadata.get("filename", f"document_{document_id}.txt")
+    content_type = metadata.get("content_type", "text/plain")
+    
+    # Create file-like object
+    file_obj = io.BytesIO(document.content.encode("utf-8"))
+    
+    # Return file for download
+    return StreamingResponse(
+        file_obj,
+        media_type=content_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @router.delete("/{document_id}")
-async def delete_document(
+def delete_document(
     document_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_org = Depends(get_current_organization)
 ):
-    """Delete a document"""
-    document = (
-        db.query(Document)
-        .filter(
-            Document.id == document_id,
-            Document.organization_id == current_user.organization_id
-        )
-        .first()
-    )
+    """Delete a document by ID"""
+    document = db.query(Document).filter(
+        Document.id == document_id,
+        Document.organization_id == current_org.id
+    ).first()
     
     if not document:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found"
-        )
-        
+        raise HTTPException(status_code=404, detail="Document not found")
+    
     db.delete(document)
     db.commit()
     
